@@ -10,11 +10,15 @@ class AudioPlayer: ObservableObject {
     @Published var isPlaying = false
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var volume: Float = 1.0 {
+        didSet { player?.volume = volume }
+    }
 
     private var player: AVPlayer?
     private var commandTargets: [Any] = []
 
     private init() {
+        volume = SettingsManager.shared.volume
         setupRemoteCommandCenter()
     }
 
@@ -96,7 +100,9 @@ class AudioPlayer: ObservableObject {
                 ]
             ])
             let item = AVPlayerItem(asset: asset)
+            item.preferredForwardBufferDuration = 10 // 10s buffer to absorb network jitter
             player = AVPlayer(playerItem: item)
+            player?.volume = volume
             player?.play()
 
             currentChannel = channel

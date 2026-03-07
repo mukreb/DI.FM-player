@@ -12,6 +12,14 @@ class SettingsManager: ObservableObject {
         didSet { defaults.set(Array(favoriteIDs), forKey: "favoriteIDs") }
     }
 
+    @Published var volume: Float {
+        didSet { defaults.set(volume, forKey: "volume") }
+    }
+
+    @Published var autoPlayOnLaunch: Bool {
+        didSet { defaults.set(autoPlayOnLaunch, forKey: "autoPlayOnLaunch") }
+    }
+
     var lastChannelID: Int? {
         get { defaults.object(forKey: "lastChannelID") as? Int }
         set {
@@ -25,6 +33,8 @@ class SettingsManager: ObservableObject {
     private init() {
         listenKey = defaults.string(forKey: "listenKey") ?? ""
         favoriteIDs = Set(defaults.array(forKey: "favoriteIDs") as? [Int] ?? [])
+        volume = defaults.object(forKey: "volume") as? Float ?? 1.0
+        autoPlayOnLaunch = defaults.object(forKey: "autoPlayOnLaunch") as? Bool ?? true
     }
 
     func toggleFavorite(channelID: Int) {
@@ -34,4 +44,5 @@ class SettingsManager: ObservableObject {
             favoriteIDs.insert(channelID)
         }
     }
+
 }

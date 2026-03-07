@@ -3,7 +3,6 @@ import SwiftUI
 struct ChannelPickerView: View {
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var channelStore: ChannelStore
-    @Environment(\.dismiss) private var dismiss
 
     @State private var searchText = ""
 
@@ -16,17 +15,6 @@ struct ChannelPickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Manage Channels")
-                    .font(.headline)
-                Spacer()
-                Button("Close") { dismiss() }
-            }
-            .padding()
-
-            Divider()
-
             // Search bar
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -76,9 +64,7 @@ struct ChannelPickerView: View {
                 }
             }
         }
-        .frame(width: 360, height: 500)
         .onAppear {
-            NSApp.activate(ignoringOtherApps: true)
             if channelStore.channels.isEmpty && !channelStore.isLoading {
                 Task { await channelStore.load() }
             }

@@ -3,44 +3,53 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var channelStore: ChannelStore
-    @Environment(\.dismiss) private var dismiss
 
     @State private var draftKey = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("DI.FM Player — Settings")
-                .font(.headline)
+        TabView {
+            generalTab
+                .tabItem { Label("General", systemImage: "gear") }
 
+            ChannelPickerView()
+                .tabItem { Label("Channels", systemImage: "music.note.list") }
+        }
+        .frame(width: 420, height: 540)
+        .onAppear {
+            draftKey = settings.listenKey
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    private var generalTab: some View {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Listen Key")
                     .font(.subheadline).foregroundColor(.secondary)
                 SecureField("Your listen key from di.fm/settings", text: $draftKey)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 320)
+                Toggle("Auto-play last channel on launch", isOn: $settings.autoPlayOnLaunch)
                 Text("Find your listen key at DI.FM → Settings → Hardware Player.")
                     .font(.caption).foregroundColor(.secondary)
             }
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button("Cancel") { NSApp.keyWindow?.close() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") {
-                    settings.listenKey = draftKey.trimmingCharacters(in: .whitespaces)
-                    if channelStore.channels.isEmpty {
-                        Task { await channelStore.load() }
-                    }
-                    dismiss()
+                    let newKey = draftKey.trimmingCharacters(in: .whitespaces)
+                    let keyChanged = newKey != settings.listenKey
+                    settings.listenKey = newKey
+                    Task { await channelStore.load(forcePlay: keyChanged) }
+                    NSApp.keyWindow?.close()
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(draftKey.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+
+            Spacer()
         }
         .padding(20)
-        .onAppear {
-            draftKey = settings.listenKey
-            NSApp.activate(ignoringOtherApps: true)
-        }
     }
 }
