@@ -29,9 +29,9 @@ class DIFMService {
             let lower = line.lowercased()
             guard lower.hasPrefix("file"), lower.contains("=") else { continue }
             let parts = line.split(separator: "=", maxSplits: 1)
-            // Behoud de URL exact zoals de PLS hem aanlevert (http://prem2.di.fm:80/...).
-            // prem-servers weigeren HTTPS op :443 (ECONNREFUSED). HTTP:80 werkt alleen
-            // zonder App Sandbox — sandbox blokkeert anders de AVFoundation IPC.
+            // Keep the URL exactly as delivered by the PLS (http://prem2.di.fm:80/...).
+            // Prem servers reject HTTPS on :443 (ECONNREFUSED). HTTP:80 only works
+            // without App Sandbox — sandbox otherwise blocks the AVFoundation IPC.
             let urlString = String(parts[parts.count - 1]).trimmingCharacters(in: .whitespaces)
             if parts.count == 2, let url = URL(string: urlString) {
                 return url
@@ -46,9 +46,9 @@ enum DIFMError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Ongeldige URL"
-        case .invalidPLS: return "Kan afspeellijst niet lezen"
-        case .noStreamFound: return "Geen stream gevonden in afspeellijst"
+        case .invalidURL: return "Invalid URL"
+        case .invalidPLS: return "Could not read playlist"
+        case .noStreamFound: return "No stream found in playlist"
         }
     }
 }

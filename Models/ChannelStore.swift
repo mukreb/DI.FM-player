@@ -9,7 +9,7 @@ class ChannelStore: ObservableObject {
     @Published var errorMessage: String?
 
     private init() {
-        // Laad kanalen direct bij app-start als de listen key al is opgeslagen
+        // Load channels immediately on app start if the listen key is already saved
         if SettingsManager.shared.hasListenKey {
             Task { await load() }
         }
@@ -26,7 +26,7 @@ class ChannelStore: ObservableObject {
         }
         isLoading = false
 
-        // Auto-play het laatste kanaal bij opstarten
+        // Auto-play the last channel on startup
         let settings = SettingsManager.shared
         if settings.hasListenKey,
            let lastID = settings.lastChannelID,

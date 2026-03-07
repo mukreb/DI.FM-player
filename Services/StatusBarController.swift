@@ -69,7 +69,7 @@ final class StatusBarController: NSObject {
 
         // Playback status
         if player.isLoading {
-            let item = NSMenuItem(title: "Laden…", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: "Loading…", action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
         } else if player.isPlaying, let channel = player.currentChannel {
@@ -80,7 +80,7 @@ final class StatusBarController: NSObject {
         }
 
         if let error = player.errorMessage {
-            let item = NSMenuItem(title: "Fout: \(error)", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: "Error: \(error)", action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
         }
@@ -102,7 +102,7 @@ final class StatusBarController: NSObject {
                     menu.addItem(item)
                 }
             } else {
-                let label = store.channels.isEmpty ? "Geen favorieten — beheer kanalen" : "Geen favorieten"
+                let label = store.channels.isEmpty ? "No favorites — manage channels" : "No favorites"
                 let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
                 item.isEnabled = false
                 menu.addItem(item)
@@ -112,18 +112,18 @@ final class StatusBarController: NSObject {
         menu.addItem(.separator())
 
         if settings.hasListenKey {
-            let item = NSMenuItem(title: "Kanalen beheren…", action: #selector(openChannels), keyEquivalent: "")
+            let item = NSMenuItem(title: "Manage Channels…", action: #selector(openChannels), keyEquivalent: "")
             item.target = self
             menu.addItem(item)
         }
 
-        let settingsItem = NSMenuItem(title: "Instellingen…", action: #selector(openSettings), keyEquivalent: "")
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Afsluiten", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
 
         return menu
@@ -157,7 +157,7 @@ final class StatusBarController: NSObject {
                 .environmentObject(ChannelStore.shared)
         )
         let window = NSWindow(contentViewController: hosting)
-        window.title = "Kanalen"
+        window.title = "Channels"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.setContentSize(NSSize(width: 360, height: 500))
         window.center()

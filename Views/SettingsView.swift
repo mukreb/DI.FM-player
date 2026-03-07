@@ -9,24 +9,24 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("DI.FM Player — Instellingen")
+            Text("DI.FM Player — Settings")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Listen Key")
                     .font(.subheadline).foregroundColor(.secondary)
-                SecureField("Jouw listen key van di.fm/settings", text: $draftKey)
+                SecureField("Your listen key from di.fm/settings", text: $draftKey)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 320)
-                Text("Vind je listen key via DI.FM → Settings → Hardware Player.")
+                Text("Find your listen key at DI.FM → Settings → Hardware Player.")
                     .font(.caption).foregroundColor(.secondary)
             }
 
             HStack {
                 Spacer()
-                Button("Annuleren") { dismiss() }
+                Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Opslaan") {
+                Button("Save") {
                     settings.listenKey = draftKey.trimmingCharacters(in: .whitespaces)
                     if channelStore.channels.isEmpty {
                         Task { await channelStore.load() }

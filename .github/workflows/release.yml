@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project "DI.FM Player.xcodeproj" \
+            -scheme "DI.FM Player" \
+            -configuration Release \
+            -derivedDataPath ./DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Zip app
+        run: |
+          cd "./DerivedData/Build/Products/Release"
+          zip -r "$GITHUB_WORKSPACE/DI.FM.Player.zip" "DI.FM Player.app"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DI.FM.Player.zip
+          generate_release_notes: true

@@ -18,10 +18,10 @@ struct ChannelPickerView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Kanalen beheren")
+                Text("Manage Channels")
                     .font(.headline)
                 Spacer()
-                Button("Sluiten") { dismiss() }
+                Button("Close") { dismiss() }
             }
             .padding()
 
@@ -31,7 +31,7 @@ struct ChannelPickerView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                TextField("Zoeken…", text: $searchText)
+                TextField("Search…", text: $searchText)
                     .textFieldStyle(.plain)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
@@ -48,12 +48,12 @@ struct ChannelPickerView: View {
             Divider()
 
             if channelStore.isLoading {
-                ProgressView("Kanalen laden…")
+                ProgressView("Loading channels…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = channelStore.errorMessage {
                 VStack(spacing: 8) {
                     Text(error).foregroundColor(.red)
-                    Button("Opnieuw proberen") {
+                    Button("Retry") {
                         Task { await channelStore.load() }
                     }
                 }

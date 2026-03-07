@@ -14,7 +14,7 @@ struct MenuBarContentView: View {
         // Playback status
         if player.isLoading {
             Button(action: {}) {
-                Label("Laden…", systemImage: "ellipsis")
+                Label("Loading…", systemImage: "ellipsis")
             }
             .disabled(true)
         } else if player.isPlaying, let channel = player.currentChannel {
@@ -24,7 +24,7 @@ struct MenuBarContentView: View {
         }
 
         if let error = player.errorMessage {
-            Text("Fout: \(error)")
+            Text("Error: \(error)")
                 .foregroundColor(.red)
         }
 
@@ -45,11 +45,11 @@ struct MenuBarContentView: View {
                 }
             } else if channelStore.channels.isEmpty {
                 Divider()
-                Text("Geen favorieten — beheer kanalen")
+                Text("No favorites — manage channels")
                     .foregroundColor(.secondary)
             } else {
                 Divider()
-                Text("Geen favorieten")
+                Text("No favorites")
                     .foregroundColor(.secondary)
             }
         }
@@ -57,20 +57,20 @@ struct MenuBarContentView: View {
         Divider()
 
         if settings.hasListenKey {
-            Button("Kanalen beheren…") {
+            Button("Manage Channels…") {
                 NSApp.activate(ignoringOtherApps: true)
                 openWindow(id: "channels")
             }
         }
 
-        Button("Instellingen…") {
+        Button("Settings…") {
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "settings")
         }
 
         Divider()
 
-        Button("Afsluiten") {
+        Button("Quit") {
             NSApplication.shared.terminate(nil)
         }
     }

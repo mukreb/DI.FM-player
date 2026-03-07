@@ -18,12 +18,12 @@ class AudioPlayer: ObservableObject {
         setupRemoteCommandCenter()
     }
 
-    // MARK: - Media Keys (spatiebalk / headphone-knop / Touch Bar)
+    // MARK: - Media Keys (spacebar / headphone button / Touch Bar)
 
     private func setupRemoteCommandCenter() {
         let cc = MPRemoteCommandCenter.shared()
 
-        // Schakel standard next/previous uit — radio heeft geen tracks
+        // Disable standard next/previous — radio has no tracks
         cc.nextTrackCommand.isEnabled = false
         cc.previousTrackCommand.isEnabled = false
         cc.skipForwardCommand.isEnabled = false
@@ -87,8 +87,8 @@ class AudioPlayer: ObservableObject {
         do {
             let url = try await DIFMService.shared.fetchStreamURL(for: channel, listenKey: listenKey)
 
-            // AVURLAsset met User-Agent zodat de server standaard HTTP retourneert
-            // i.p.v. ICY-protocol (SHOUTcast), dat AVPlayer niet begrijpt.
+            // AVURLAsset with User-Agent so the server returns standard HTTP
+            // instead of ICY protocol (SHOUTcast), which AVPlayer does not understand.
             let asset = AVURLAsset(url: url, options: [
                 "AVURLAssetHTTPHeaderFieldsKey": [
                     "User-Agent": "iTunes/12.0",
