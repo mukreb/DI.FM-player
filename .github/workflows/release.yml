@@ -47,7 +47,9 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          SIGNATURE=$(SPARKLE_PRIVATE_KEY="$SPARKLE_PRIVATE_KEY" ./sparkle/bin/sign_update DI.FM.Player.zip)
+          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
+          SIGNATURE=$(./sparkle/bin/sign_update DI.FM.Player.zip -f /tmp/sparkle_key)
+          rm /tmp/sparkle_key
           FILE_SIZE=$(stat -f%z DI.FM.Player.zip)
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
           DOWNLOAD_URL="https://github.com/mukreb/DI.FM-player/releases/download/${GITHUB_REF_NAME}/DI.FM.Player.zip"
