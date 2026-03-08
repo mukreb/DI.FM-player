@@ -202,28 +202,34 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func checkForUpdates() {
+        NSApp.activate(ignoringOtherApps: true)
         UpdateChecker.shared.checkForUpdates()
     }
 
     @objc private func openSettings() {
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = settingsWindow, window.isVisible {
+        // Defer window presentation so the menu has fully closed first
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            if let window = self.settingsWindow, window.isVisible {
+                window.makeKeyAndOrderFront(nil)
+                return
+            }
+            let hosting = NSHostingController(rootView:
+                SettingsView()
+                    .environmentObject(SettingsManager.shared)
+                    .environmentObject(ChannelStore.shared)
+                    .environmentObject(UpdateChecker.shared)
+            )
+            let window = NSWindow(contentViewController: hosting)
+            window.title = "Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.setContentSize(NSSize(width: 420, height: 540))
+            window.center()
+            window.level = .floating
+            self.settingsWindow = window
             window.makeKeyAndOrderFront(nil)
-            return
         }
-        let hosting = NSHostingController(rootView:
-            SettingsView()
-                .environmentObject(SettingsManager.shared)
-                .environmentObject(ChannelStore.shared)
-                .environmentObject(UpdateChecker.shared)
-        )
-        let window = NSWindow(contentViewController: hosting)
-        window.title = "Settings"
-        window.styleMask = [.titled, .closable]
-        window.setContentSize(NSSize(width: 420, height: 540))
-        window.center()
-        settingsWindow = window
-        window.makeKeyAndOrderFront(nil)
     }
 
 }

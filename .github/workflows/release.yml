@@ -31,8 +31,11 @@ jobs:
             MARKETING_VERSION="$VERSION" \
             build
 
-      - name: Zip app
+      - name: Sign app (ad-hoc) and zip
         run: |
+          # Apply ad-hoc signature so Sparkle's code signing check passes.
+          # Without this, Xcode leaves a corrupted signature stub that Sparkle rejects.
+          codesign --force --deep --sign - "./DerivedData/Build/Products/Release/DI.FM Player.app"
           cd "./DerivedData/Build/Products/Release"
           zip -r "$GITHUB_WORKSPACE/DI.FM.Player.zip" "DI.FM Player.app"
 
