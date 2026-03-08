@@ -3,12 +3,10 @@ import SwiftUI
 @main
 struct DI_FM_PlayerApp: App {
     init() {
+        // Start Sparkle BEFORE audio initializes so its brief main-thread
+        // work doesn't cause HALC overloads on an active audio stream.
+        UpdateChecker.shared.startUpdater()
         _ = StatusBarController.shared
-        // Start Sparkle's updater after a short delay so it doesn't block
-        // the main thread during app startup (which causes audio glitches).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            UpdateChecker.shared.startUpdater()
-        }
     }
 
     var body: some Scene {

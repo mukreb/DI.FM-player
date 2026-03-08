@@ -20,17 +20,22 @@ final class UpdateChecker: NSObject, ObservableObject {
         super.init()
     }
 
-    /// Call once after the app has fully launched to start Sparkle's background checks.
+    /// Start Sparkle's updater. Call this once at app launch, before audio starts.
     func startUpdater() {
+        guard !updaterStarted else { return }
         controller.startUpdater()
+        updaterStarted = true
     }
 
     /// Triggers a manual update check, showing Sparkle's built-in UI.
     func checkForUpdates() {
+        startUpdater() // no-op if already started
         NSApp.activate(ignoringOtherApps: true)
         controller.checkForUpdates(nil)
     }
 
-    /// No-op: Sparkle handles periodic checks via SUEnableAutomaticChecks in Info.plist.
+    private var updaterStarted = false
+
+    /// No-op: kept for compatibility.
     func startPeriodicChecks() {}
 }
