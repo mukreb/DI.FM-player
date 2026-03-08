@@ -18,7 +18,9 @@
 		AA0000000000000000000023 /* ChannelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000017 /* ChannelPickerView.swift */; };
 		AA0000000000000000000024 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* Assets.xcassets */; };
 		AA000000000000000000002B /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* MediaPlayer.framework */; };
+		AA0000000000000000000030 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000002F /* Sparkle */; };
 		C8A306572F5CAA67007F3D12 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A306562F5CAA67007F3D12 /* StatusBarController.swift */; };
+		AA000000000000000000002D /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002C /* UpdateChecker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +39,7 @@
 		AA000000000000000000001A /* DI_FM_Player.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DI_FM_Player.entitlements; sourceTree = "<group>"; };
 		AA000000000000000000002A /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		C8A306562F5CAA67007F3D12 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
+		AA000000000000000000002C /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +48,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000000000000000000002B /* MediaPlayer.framework in Frameworks */,
+				AA0000000000000000000030 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,6 +93,7 @@
 				AA0000000000000000000012 /* DIFMService.swift */,
 				AA0000000000000000000013 /* AudioPlayer.swift */,
 				AA0000000000000000000014 /* SettingsManager.swift */,
+				AA000000000000000000002C /* UpdateChecker.swift */,
 				C8A306562F5CAA67007F3D12 /* StatusBarController.swift */,
 			);
 			path = Services;
@@ -128,6 +133,9 @@
 			dependencies = (
 			);
 			name = "DI.FM Player";
+			packageProductDependencies = (
+				AA000000000000000000002F /* Sparkle */,
+			);
 			productName = "DI.FM Player";
 			productReference = AA000000000000000000000E /* DI.FM Player.app */;
 			productType = "com.apple.product-type.application";
@@ -135,6 +143,25 @@
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
+/* Begin XCRemoteSwiftPackageReference section */
+		AA000000000000000000002E /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA000000000000000000002F /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000000000000000000002E /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+
 		AA0000000000000000000001 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
@@ -156,6 +183,9 @@
 				Base,
 			);
 			mainGroup = AA0000000000000000000002;
+			packageReferences = (
+				AA000000000000000000002E /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = AA0000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -185,6 +215,7 @@
 				AA000000000000000000001C /* Channel.swift in Sources */,
 				AA000000000000000000001D /* ChannelStore.swift in Sources */,
 				C8A306572F5CAA67007F3D12 /* StatusBarController.swift in Sources */,
+				AA000000000000000000002D /* UpdateChecker.swift in Sources */,
 				AA000000000000000000001E /* DIFMService.swift in Sources */,
 				AA000000000000000000001F /* AudioPlayer.swift in Sources */,
 				AA0000000000000000000020 /* SettingsManager.swift in Sources */,
@@ -327,8 +358,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -354,7 +385,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = NO;

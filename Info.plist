@@ -22,6 +22,12 @@
 	<string>Copyright © 2026 Martijn van Berkum</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/mukreb/DI.FM-player/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>UDTmHdHimawvnYUmcYYR1qBaAElQsgMTvn1mrXIjuAw=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

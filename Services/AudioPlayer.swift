@@ -103,6 +103,7 @@ class AudioPlayer: ObservableObject {
             item.preferredForwardBufferDuration = 10 // 10s buffer to absorb network jitter
             player = AVPlayer(playerItem: item)
             player?.volume = volume
+            player?.automaticallyWaitsToMinimizeStalling = false // live stream — don't buffer
             player?.play()
 
             currentChannel = channel

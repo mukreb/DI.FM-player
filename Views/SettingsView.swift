@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsManager
     @EnvironmentObject var channelStore: ChannelStore
+    @EnvironmentObject var updater: UpdateChecker
 
     @State private var draftKey = ""
 
@@ -49,7 +50,22 @@ struct SettingsView: View {
             }
 
             Spacer()
+
+            aboutSection
         }
         .padding(20)
+    }
+
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            HStack {
+                let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+                Text("DI.FM Player \(version)")
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button("Check for Updates…") { updater.checkForUpdates() }
+            }
+        }
     }
 }

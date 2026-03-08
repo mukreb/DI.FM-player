@@ -11,6 +11,7 @@ struct DI_FM_PlayerApp: App {
             SettingsView()
                 .environmentObject(SettingsManager.shared)
                 .environmentObject(ChannelStore.shared)
+                .environmentObject(UpdateChecker.shared)
         }
     }
 }

@@ -1,0 +1,36 @@
+# Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+
+# Build
+build/
+*.ipa
+*.dSYM.zip
+
+# SPM
+.build/
+Packages/
+
+# macOS
+.DS_Store
+*.swp
+
+# Sparkle downloaded binaries (via SPM, not committed)
+sparkle.app/
+"Sparkle Test App.app"/
+Sparkle.framework/
+Symbols/
+bin/
+SampleAppcast.xml
+sparkle.tar.xz
+sparkle/
+
+# Claude
+.claude/
+
+# Other
+CHANGELOG
+INSTALL

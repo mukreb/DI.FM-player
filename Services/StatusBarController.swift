@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class StatusBarController: NSObject {
+final class StatusBarController: NSObject, NSMenuDelegate {
     static let shared = StatusBarController()
 
     private let statusItem: NSStatusItem
@@ -29,6 +29,9 @@ final class StatusBarController: NSObject {
         // Trigger early initialization of ChannelStore
         _ = ChannelStore.shared
 
+        // Start periodic update checks (every 24h) and request notification permission
+        UpdateChecker.shared.startPeriodicChecks()
+
         // Update icon when playback state changes
         AudioPlayer.shared.$isPlaying
             .receive(on: DispatchQueue.main)
@@ -48,10 +51,19 @@ final class StatusBarController: NSObject {
     @objc private func handleClick(_ sender: NSStatusBarButton) {
         guard let event = NSApp.currentEvent else { return }
         if event.type == .rightMouseUp {
-            let menu = buildMenu()
-            NSMenu.popUpContextMenu(menu, with: event, for: sender)
+            // Assign menu to statusItem so the system shows it non-blocking,
+            // instead of NSMenu.popUpContextMenu which blocks the main thread.
+            statusItem.menu = buildMenu()
+            statusItem.button?.performClick(nil)
+            // menuDidClose will nil out statusItem.menu so left-clicks still work.
         } else {
             togglePlayback()
+        }
+    }
+
+    nonisolated func menuDidClose(_ menu: NSMenu) {
+        Task { @MainActor in
+            self.statusItem.menu = nil
         }
     }
 
@@ -68,6 +80,7 @@ final class StatusBarController: NSObject {
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
         let player = AudioPlayer.shared
         let settings = SettingsManager.shared
         let store = ChannelStore.shared
@@ -135,6 +148,10 @@ final class StatusBarController: NSObject {
 
         menu.addItem(.separator())
 
+        let checkUpdateItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        checkUpdateItem.target = self
+        menu.addItem(checkUpdateItem)
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -184,6 +201,10 @@ final class StatusBarController: NSObject {
         Task { await AudioPlayer.shared.play(channel: prev, listenKey: SettingsManager.shared.listenKey) }
     }
 
+    @objc private func checkForUpdates() {
+        UpdateChecker.shared.checkForUpdates()
+    }
+
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
         if let window = settingsWindow, window.isVisible {
@@ -194,6 +215,7 @@ final class StatusBarController: NSObject {
             SettingsView()
                 .environmentObject(SettingsManager.shared)
                 .environmentObject(ChannelStore.shared)
+                .environmentObject(UpdateChecker.shared)
         )
         let window = NSWindow(contentViewController: hosting)
         window.title = "Settings"

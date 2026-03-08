@@ -13,9 +13,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Build
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           xcodebuild \
             -project "DI.FM Player.xcodeproj" \
             -scheme "DI.FM Player" \
@@ -24,12 +28,56 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$VERSION" \
             build
 
       - name: Zip app
         run: |
           cd "./DerivedData/Build/Products/Release"
           zip -r "$GITHUB_WORKSPACE/DI.FM.Player.zip" "DI.FM Player.app"
+
+      - name: Download Sparkle tools
+        run: |
+          SPARKLE_VER=2.6.4
+          curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VER}/Sparkle-${SPARKLE_VER}.tar.xz" -o sparkle.tar.xz
+          mkdir sparkle && tar -xJf sparkle.tar.xz -C sparkle
+
+      - name: Sign update and generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          SIGNATURE=$(SPARKLE_PRIVATE_KEY="$SPARKLE_PRIVATE_KEY" ./sparkle/bin/sign_update DI.FM.Player.zip)
+          FILE_SIZE=$(stat -f%z DI.FM.Player.zip)
+          PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+          DOWNLOAD_URL="https://github.com/mukreb/DI.FM-player/releases/download/${GITHUB_REF_NAME}/DI.FM.Player.zip"
+
+          cat > appcast.xml << EOF
+          <?xml version="1.0" standalone="yes"?>
+          <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+            <channel>
+              <title>DI.FM Player</title>
+              <item>
+                <title>Version ${VERSION}</title>
+                <sparkle:version>${VERSION}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+                <pubDate>${PUB_DATE}</pubDate>
+                <enclosure
+                  url="${DOWNLOAD_URL}"
+                  sparkle:edSignature="${SIGNATURE}"
+                  length="${FILE_SIZE}"
+                  type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "Update appcast for ${GITHUB_REF_NAME}"
+          git push origin HEAD:main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
