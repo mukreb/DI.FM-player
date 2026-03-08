@@ -100,10 +100,12 @@ class AudioPlayer: ObservableObject {
                 ]
             ])
             let item = AVPlayerItem(asset: asset)
-            item.preferredForwardBufferDuration = 10 // 10s buffer to absorb network jitter
+            item.preferredForwardBufferDuration = 3 // 3s buffer — absorbs brief main-thread blocks
             player = AVPlayer(playerItem: item)
             player?.volume = volume
-            player?.automaticallyWaitsToMinimizeStalling = false // live stream — don't buffer
+            // automaticallyWaitsToMinimizeStalling = true (default): AVPlayer keeps a
+            // decoded audio buffer. Brief main-thread stalls (UI interactions, Sparkle)
+            // are absorbed by this buffer instead of causing audible crackling.
             player?.play()
 
             currentChannel = channel
