@@ -2,6 +2,17 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>DI.FM Player</title>
-    <!-- Items are added automatically by the release workflow -->
+    <item>
+      <title>Version 1.0.3</title>
+      <sparkle:version>1.0.3</sparkle:version>
+      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 08 Mar 2026 16:53:07 +0000</pubDate>
+      <enclosure
+        url="https://github.com/mukreb/DI.FM-player/releases/download/v1.0.3/DI.FM.Player.zip"
+        sparkle:edSignature="sparkle:edSignature="7dlCc2sIdd3qi30CkcGW0ECFhiZrHrtzUOVgFeEvwhcPWhNEAPdAZ/Iqok6TXu3iLELPHJ9tEfy9RmgqTnw8AA==" length="2962403""
+        length="2962403"
+        type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
