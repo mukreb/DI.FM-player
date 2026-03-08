@@ -55,25 +55,24 @@ jobs:
           DOWNLOAD_URL="https://github.com/mukreb/DI.FM-player/releases/download/${GITHUB_REF_NAME}/DI.FM.Player.zip"
 
           cat > appcast.xml << EOF
-          <?xml version="1.0" standalone="yes"?>
-          <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-            <channel>
-              <title>DI.FM Player</title>
-              <item>
-                <title>Version ${VERSION}</title>
-                <sparkle:version>${VERSION}</sparkle:version>
-                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-                <pubDate>${PUB_DATE}</pubDate>
-                <enclosure
-                  url="${DOWNLOAD_URL}"
-                  sparkle:edSignature="${SIGNATURE}"
-                  length="${FILE_SIZE}"
-                  type="application/octet-stream"/>
-              </item>
-            </channel>
-          </rss>
-          EOF
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>DI.FM Player</title>
+    <item>
+      <title>Version ${VERSION}</title>
+      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>${PUB_DATE}</pubDate>
+      <enclosure
+        url="${DOWNLOAD_URL}"
+        ${SIGNATURE}
+        type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
+EOF
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
