@@ -39,6 +39,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 self?.updateIcon(playing: playing)
             }
             .store(in: &cancellables)
+
+        // Pre-warm UI components so the first right-click and first Settings open
+        // don't block the audio thread (which causes a single crackle on first use).
+        prewarmSettingsWindow()
+        prewarmSymbolsAndViews()
     }
 
     private func updateIcon(playing: Bool) {
@@ -203,13 +208,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() {
-        // Defer window presentation so the menu has fully closed first
+        // Defer window presentation so the menu has fully closed first.
+        // settingsWindow is pre-created at init time (prewarmSettingsWindow), so
+        // this branch is taken on every open — no SwiftUI bootstrap on the hot path.
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
-            if let window = self.settingsWindow, window.isVisible {
+            if let window = self.settingsWindow {
                 window.makeKeyAndOrderFront(nil)
                 return
             }
+            // Fallback: should not be reached after pre-warming, but kept for safety.
             let hosting = NSHostingController(rootView:
                 SettingsView()
                     .environmentObject(SettingsManager.shared)
@@ -226,6 +234,42 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             self.settingsWindow = window
             window.makeKeyAndOrderFront(nil)
         }
+    }
+
+    // MARK: - Pre-warming
+
+    private func prewarmSettingsWindow() {
+        let hosting = NSHostingController(rootView:
+            SettingsView()
+                .environmentObject(SettingsManager.shared)
+                .environmentObject(ChannelStore.shared)
+                .environmentObject(UpdateChecker.shared)
+        )
+        let window = NSWindow(contentViewController: hosting)
+        window.title = "Settings"
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        window.setContentSize(NSSize(width: 420, height: 540))
+        window.center()
+        window.level = .floating
+        settingsWindow = window
+        // Window stays hidden until the user opens Settings for the first time.
+    }
+
+    private func prewarmSymbolsAndViews() {
+        // NSImage(systemSymbolName:) is slow on first call per symbol; subsequent
+        // calls are instant (system cache). Load them all here before audio starts.
+        let symbols = [
+            "stop.circle.fill", "backward.fill", "forward.fill",
+            "music.note", "speaker.wave.2.fill", "speaker.wave.2",
+            "waveform", "waveform.circle.fill"
+        ]
+        for name in symbols {
+            _ = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+        }
+        // Creating VolumeSliderView bootstraps NSSlider and the Auto Layout engine.
+        // The instance is discarded; only the system-level caches matter.
+        _ = VolumeSliderView(volume: AudioPlayer.shared.volume)
     }
 
 }
