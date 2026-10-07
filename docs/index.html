@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DI.FM Player for macOS</title>
+<meta name="description" content="A tiny native macOS menu bar player for DI.FM Premium. Unofficial, open source.">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #f6f6f8;
+    --surface: #ffffff;
+    --text: #16161a;
+    --muted: #5e5e6a;
+    --border: #e3e3ea;
+    --accent: #3f5bff;
+    --accent-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0e12;
+      --surface: #17171d;
+      --text: #ececf1;
+      --muted: #9a9aa8;
+      --border: #2a2a34;
+      --accent: #6d82ff;
+      --accent-text: #0e0e12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  a { color: var(--accent); }
+
+  .hero { text-align: center; padding: 88px 0 56px; }
+  .icon { display: block; width: 128px; height: 128px; margin: 0 auto 16px; }
+  h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 16px; }
+  .lede { font-size: 20px; color: var(--muted); max-width: 560px; margin: 0 auto 32px; }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 12px 22px; border-radius: 999px;
+    font-weight: 600; text-decoration: none; border: 1px solid var(--border);
+    color: var(--text); background: var(--surface);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
+
+  .shots {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    align-items: start; padding: 24px 0 72px;
+  }
+  .shots figure { margin: 0; }
+  .shots img {
+    width: 100%; height: auto; display: block; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .shots figcaption { font-size: 14px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+  section { padding: 48px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 28px; letter-spacing: -0.01em; margin: 0 0 24px; }
+  .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 40px; }
+  .features h3 { font-size: 17px; margin: 0 0 4px; }
+  .features p { margin: 0; color: var(--muted); }
+  ol { padding-left: 22px; margin: 0; }
+  ol li { margin-bottom: 8px; }
+  code { font: 15px ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+
+  footer { padding: 40px 0 64px; border-top: 1px solid var(--border); font-size: 14px; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .hero { padding: 56px 0 40px; }
+    .shots { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+    .features { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <img class="icon" src="icon.png" width="128" height="128" alt="">
+    <h1>DI.FM Player for macOS</h1>
+    <p class="lede">A tiny native menu bar app for DI.FM Premium. One click to play, no window, no Dock icon.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/mukreb/DI.FM-player/releases/latest/download/DI.FM.Player.zip">Download for Mac</a>
+      <a class="btn" href="https://github.com/mukreb/DI.FM-player">View on GitHub</a>
+    </div>
+    <p class="meta">Free and open source · macOS 13 Ventura or later · Signed &amp; notarized</p>
+  </header>
+
+  <div class="shots">
+    <figure>
+      <img src="screenshots/menu.png" width="532" height="560" alt="Menu bar menu with favorite channels, previous/next and volume slider">
+      <figcaption>Right-click menu</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/settings-general.jpg" width="1064" height="1368" alt="Settings window with listen key field">
+      <figcaption>Settings</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/settings-channels.jpg" width="1064" height="1368" alt="Channel list with search and star favorites">
+      <figcaption>Pick your favorites</figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="features">
+      <div><h3>Lives in your menu bar</h3><p>Left-click to play or pause. Right-click for favorites, volume and settings.</p></div>
+      <div><h3>Media keys</h3><p>Play/pause from your keyboard, headphones or Control Center.</p></div>
+      <div><h3>Picks up where you left off</h3><p>Resumes your last channel when the app launches.</p></div>
+      <div><h3>Keeps playing</h3><p>Reconnects on its own after network hiccups or when your Mac wakes from sleep.</p></div>
+      <div><h3>Your favorites</h3><p>Star channels from the full DI.FM list and switch with next/previous.</p></div>
+      <div><h3>Updates itself</h3><p>New versions install automatically via Sparkle.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Getting started</h2>
+    <ol>
+      <li>You need a <a href="https://www.di.fm/premium">DI.FM Premium</a> subscription.</li>
+      <li>Download the app, unzip it and move it to <code>/Applications</code>.</li>
+      <li>Open it, right-click the menu bar icon and choose <strong>Settings…</strong></li>
+      <li>Paste your listen key (DI.FM → Settings → Hardware Player) and save.</li>
+    </ol>
+  </section>
+
+  <footer>
+    Unofficial personal project, not affiliated with or endorsed by DI.FM / Digitally Imported.
+    DI.FM and related marks are trademarks of their respective owners.
+    Made by <a href="https://github.com/mukreb">mukreb</a> · MIT licensed.
+  </footer>
+</main>
+</body>
+</html>

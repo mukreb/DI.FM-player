@@ -29,9 +29,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // Trigger early initialization of ChannelStore
         _ = ChannelStore.shared
 
-        // Start periodic update checks (every 24h) and request notification permission
-        UpdateChecker.shared.startPeriodicChecks()
-
         // Update icon when playback state changes
         AudioPlayer.shared.$isPlaying
             .receive(on: DispatchQueue.main)
@@ -200,11 +197,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             prev = favorites[0]
         }
         Task { await AudioPlayer.shared.play(channel: prev, listenKey: SettingsManager.shared.listenKey) }
-    }
-
-    @objc private func checkForUpdates() {
-        NSApp.activate(ignoringOtherApps: true)
-        UpdateChecker.shared.checkForUpdates()
     }
 
     @objc private func openSettings() {

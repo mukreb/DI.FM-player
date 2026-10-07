@@ -30,8 +30,9 @@ class DIFMService {
             guard lower.hasPrefix("file"), lower.contains("=") else { continue }
             let parts = line.split(separator: "=", maxSplits: 1)
             // Keep the URL exactly as delivered by the PLS (http://prem2.di.fm:80/...).
-            // Prem servers reject HTTPS on :443 (ECONNREFUSED). HTTP:80 only works
-            // without App Sandbox — sandbox otherwise blocks the AVFoundation IPC.
+            // Prem servers reject HTTPS on :443 (ECONNREFUSED), so plain HTTP is allowed
+            // for di.fm via the ATS exception in Info.plist. HTTP:80 only works without
+            // App Sandbox — sandbox otherwise blocks the AVFoundation IPC.
             let urlString = String(parts[parts.count - 1]).trimmingCharacters(in: .whitespaces)
             if parts.count == 2, let url = URL(string: urlString) {
                 return url
