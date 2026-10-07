@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DI.FM Player for macOS</title>
 <meta name="description" content="A tiny native macOS menu bar player for DI.FM Premium. Unofficial, open source.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>〰️</text></svg>">
+<link rel="icon" href="icon.png">
 <style>
   :root {
     --bg: #f6f6f8;
@@ -39,11 +39,7 @@
   a { color: var(--accent); }
 
   .hero { text-align: center; padding: 88px 0 56px; }
-  .icon {
-    width: 72px; height: 72px; margin: 0 auto 24px;
-    border-radius: 18px; background: var(--surface); border: 1px solid var(--border);
-    display: grid; place-items: center;
-  }
+  .icon { display: block; width: 128px; height: 128px; margin: 0 auto 16px; }
   h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 16px; }
   .lede { font-size: 20px; color: var(--muted); max-width: 560px; margin: 0 auto 32px; }
   .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
@@ -87,11 +83,7 @@
 <body>
 <main>
   <header class="hero">
-    <div class="icon" aria-hidden="true">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round">
-        <path d="M3 10v4M7 6v12M11 3v18M15 8v8M19 5v14M23 10v4"/>
-      </svg>
-    </div>
+    <img class="icon" src="icon.png" width="128" height="128" alt="">
     <h1>DI.FM Player for macOS</h1>
     <p class="lede">A tiny native menu bar app for DI.FM Premium. One click to play, no window, no Dock icon.</p>
     <div class="actions">

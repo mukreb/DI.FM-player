@@ -13,7 +13,6 @@
 		AA000000000000000000001E /* DIFMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* DIFMService.swift */; };
 		AA000000000000000000001F /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000013 /* AudioPlayer.swift */; };
 		AA0000000000000000000020 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000014 /* SettingsManager.swift */; };
-		AA0000000000000000000021 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000015 /* MenuBarContentView.swift */; };
 		AA0000000000000000000022 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000016 /* SettingsView.swift */; };
 		AA0000000000000000000023 /* ChannelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000017 /* ChannelPickerView.swift */; };
 		AA0000000000000000000024 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* Assets.xcassets */; };
@@ -31,7 +30,6 @@
 		AA0000000000000000000012 /* DIFMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIFMService.swift; sourceTree = "<group>"; };
 		AA0000000000000000000013 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		AA0000000000000000000014 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
-		AA0000000000000000000015 /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000017 /* ChannelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelPickerView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000018 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -102,7 +100,6 @@
 		AA0000000000000000000028 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000015 /* MenuBarContentView.swift */,
 				AA0000000000000000000016 /* SettingsView.swift */,
 				AA0000000000000000000017 /* ChannelPickerView.swift */,
 			);
@@ -219,7 +216,6 @@
 				AA000000000000000000001E /* DIFMService.swift in Sources */,
 				AA000000000000000000001F /* AudioPlayer.swift in Sources */,
 				AA0000000000000000000020 /* SettingsManager.swift in Sources */,
-				AA0000000000000000000021 /* MenuBarContentView.swift in Sources */,
 				AA0000000000000000000022 /* SettingsView.swift in Sources */,
 				AA0000000000000000000023 /* ChannelPickerView.swift in Sources */,
 			);
