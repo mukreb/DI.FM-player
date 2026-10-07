@@ -35,7 +35,4 @@ final class UpdateChecker: NSObject, ObservableObject {
     }
 
     private var updaterStarted = false
-
-    /// No-op: kept for compatibility.
-    func startPeriodicChecks() {}
 }

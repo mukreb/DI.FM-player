@@ -28,6 +28,7 @@ DI.FM Player sits as a small icon in your menu bar. Click it to start or pause a
 - **Left-click** the icon → start/pause the current stream
 - **Right-click** the icon → menu with favorites, previous/next, volume and settings
 - Automatically restarts the last channel on app launch
+- Automatically reconnects when the stream drops (network hiccup, server disconnect, wake from sleep)
 - Media keys on keyboard and headphones work (via `MPRemoteCommandCenter`)
 - Favorites are stored locally
 
@@ -39,34 +40,18 @@ DI.FM Player sits as a small icon in your menu bar. Click it to start or pause a
 
 ---
 
-## Download & First Launch
+## Download
 
-> ⚠️ **The app is not notarized by Apple.**
->
-> Notarization requires a paid Apple Developer account. This is a personal open-source project,
-> so the app is distributed unsigned. macOS Gatekeeper will block the app from opening the first
-> time. **This is expected and does not mean the app contains malware.**
+1. Download `DI.FM.Player.zip` from [Releases](../../releases/latest)
+2. Unzip it and move `DI.FM Player.app` to your `/Applications` folder
+3. Open the app — it's signed with a Developer ID and notarized by Apple, so it opens without Gatekeeper warnings
+4. Right-click the menu bar icon → **Settings…** → enter your Listen Key and save
+5. Go to the **Channels** tab to mark your favorites with ★
 
-### Steps after downloading:
+Updates are delivered automatically via [Sparkle](https://sparkle-project.org).
 
-1. Download `DI.FM.Player.zip` from [Releases](../../releases)
-2. Double-click the zip to unzip it
-3. Move `DI.FM Player.app` to your `/Applications` folder
-4. **Do not double-click yet** — Gatekeeper will show _"cannot be opened because it is from an unidentified developer"_
-
-**Option A — easiest (no Terminal needed):**
-
-Right-click `DI.FM Player.app` in Finder → **Open** → click **Open** in the dialog.
-You only need to do this once.
-
-**Option B — Terminal:**
-```bash
-xattr -cr "/Applications/DI.FM Player.app"
-```
-Then double-click the app normally.
-
-5. On first launch: right-click the menu bar icon → **Settings…** → enter your Listen Key and save
-6. Go to the **Channels** tab to mark your favorites with ★
+> Versions up to 1.0.6 were unsigned. If you still run one of those, the next
+> automatic update brings you to a signed build — no action needed.
 
 ---
 
@@ -100,12 +85,23 @@ Then double-click the app normally.
 
 ## Releases
 
-Releases are built automatically via GitHub Actions when a version tag is pushed:
+Releases are built, signed with Developer ID, notarized and published automatically via
+GitHub Actions when a version tag is pushed. The tag also sets the app version:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.7
+git push origin v1.0.7
 ```
+
+Required repository secrets:
+
+| Secret | Contents |
+|---|---|
+| `DEVELOPER_ID_P12_BASE64` | Developer ID Application certificate + private key, exported as .p12, base64-encoded |
+| `DEVELOPER_ID_P12_PASSWORD` | Password of that .p12 |
+| `APPLE_ID` | Apple ID email used for notarization |
+| `APPLE_APP_PASSWORD` | App-specific password for that Apple ID (appleid.apple.com) |
+| `SPARKLE_PRIVATE_KEY` | Sparkle EdDSA private key for signing updates |
 
 ---
 

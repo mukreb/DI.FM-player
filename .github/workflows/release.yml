@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+env:
+  TEAM_ID: LKA775MVB8
+  SPARKLE_VER: 2.10.0
+
 jobs:
   build:
     runs-on: macos-latest
@@ -12,37 +16,78 @@ jobs:
       contents: write
 
     steps:
+      # Build exactly the tagged commit (not whatever main happens to be).
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
 
-      - name: Build
+      - name: Import Developer ID certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Archive
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          xcodebuild \
+          xcodebuild archive \
             -project "DI.FM Player.xcodeproj" \
             -scheme "DI.FM Player" \
             -configuration Release \
-            -derivedDataPath ./DerivedData \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            -archivePath "$RUNNER_TEMP/DIFM.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$VERSION" \
-            build
+            CURRENT_PROJECT_VERSION="$VERSION"
 
-      - name: Sign app (ad-hoc) and zip
+      - name: Export signed app
         run: |
-          # Apply ad-hoc signature so Sparkle's code signing check passes.
-          # Without this, Xcode leaves a corrupted signature stub that Sparkle rejects.
-          codesign --force --deep --sign - "./DerivedData/Build/Products/Release/DI.FM Player.app"
-          cd "./DerivedData/Build/Products/Release"
-          zip -r "$GITHUB_WORKSPACE/DI.FM.Player.zip" "DI.FM Player.app"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>developer-id</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Developer ID Application</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/DIFM.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+          codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/export/DI.FM Player.app"
+
+      - name: Notarize and staple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          APP="$RUNNER_TEMP/export/DI.FM Player.app"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+          spctl --assess --type execute --verbose "$APP"
+          # Final zip contains the stapled app.
+          ditto -c -k --keepParent "$APP" "$GITHUB_WORKSPACE/DI.FM.Player.zip"
 
       - name: Download Sparkle tools
         run: |
-          SPARKLE_VER=2.6.4
           curl -L "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VER}/Sparkle-${SPARKLE_VER}.tar.xz" -o sparkle.tar.xz
           mkdir sparkle && tar -xJf sparkle.tar.xz -C sparkle
 
@@ -51,12 +96,15 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          SIGNATURE=$(./sparkle/bin/sign_update DI.FM.Player.zip -f /tmp/sparkle_key)
-          rm /tmp/sparkle_key
-          FILE_SIZE=$(stat -f%z DI.FM.Player.zip)
+          echo "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle_key"
+          SIGNATURE=$(./sparkle/bin/sign_update DI.FM.Player.zip -f "$RUNNER_TEMP/sparkle_key")
+          rm "$RUNNER_TEMP/sparkle_key"
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
           DOWNLOAD_URL="https://github.com/mukreb/DI.FM-player/releases/download/${GITHUB_REF_NAME}/DI.FM.Player.zip"
+
+          # The tag is checked out detached; commit the appcast on top of main.
+          git fetch origin main
+          git checkout -B main origin/main
 
           sed 's/^          //' << EOF > appcast.xml
           <?xml version="1.0" standalone="yes"?>
@@ -82,10 +130,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add appcast.xml
           git commit -m "Update appcast for ${GITHUB_REF_NAME}"
-          git push origin HEAD:main
+          git push origin main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: DI.FM.Player.zip
           generate_release_notes: true
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
