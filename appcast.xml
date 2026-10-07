@@ -3,14 +3,14 @@
   <channel>
     <title>DI.FM Player</title>
     <item>
-      <title>Version 1.0.6</title>
-      <sparkle:version>1.0.6</sparkle:version>
-      <sparkle:shortVersionString>1.0.6</sparkle:shortVersionString>
+      <title>Version 1.0.7</title>
+      <sparkle:version>1.0.7</sparkle:version>
+      <sparkle:shortVersionString>1.0.7</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <pubDate>Sun, 08 Mar 2026 17:51:28 +0000</pubDate>
+      <pubDate>Wed, 07 Oct 2026 20:29:36 +0000</pubDate>
       <enclosure
-        url="https://github.com/mukreb/DI.FM-player/releases/download/v1.0.6/DI.FM.Player.zip"
-        sparkle:edSignature="wl2sjfNtbZyMMacTZpskQ5M6iWAf/16m6+YHdPYrXY2pmDvBAp/F1C0clKHsO6+EmReBEQwwAeezcXZjeto6Dw==" length="2974753"
+        url="https://github.com/mukreb/DI.FM-player/releases/download/v1.0.7/DI.FM.Player.zip"
+        sparkle:edSignature="NgejHzf45+i341uIzrXt03TWOGQOI0FdaExS/xByxgW22ZaHyBtV28TO1aratvpGm4BOfCtB5dAlvPbvxz9MDA==" length="2046322"
         type="application/octet-stream"/>
     </item>
   </channel>
