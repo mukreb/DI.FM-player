@@ -24,7 +24,7 @@ class AudioPlayer: ObservableObject {
     private var stallTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempts = 0
-    /// Holds playback paused after a stall until enough audio is buffered again.
+    /// Holds playback paused until enough audio is buffered (briefly at start, longer after a stall).
     private var bufferGateTask: Task<Void, Never>?
     /// Stalls since the user pressed play; each one makes the next rebuffer longer.
     private var stallCount = 0
@@ -37,6 +37,8 @@ class AudioPlayer: ObservableObject {
 
     private static let stallTimeout: UInt64 = 15 // seconds of buffering before reconnecting
     private static let maxReconnectAttempts = 10 // ~4.5 min of retries with backoff
+    private static let startBufferSeconds = 2.0 // short cushion before first playback
+    private static let startBufferTimeout: TimeInterval = 3 // never delay the start longer than this
     private static let rebufferStepSeconds = 4.0 // rebuffer target grows 4, 8, 12, … per stall
     private static let maxRebufferSeconds = 20.0
     private static let bufferWaitTimeout: TimeInterval = 25 // max wait for the buffer target
@@ -170,12 +172,13 @@ class AudioPlayer: ObservableObject {
         // automaticallyWaitsToMinimizeStalling = true (default). On its own this is not
         // enough for a progressive live stream: AVPlayer resumes as soon as it thinks it
         // can keep up, often with under a second of audio, so one network hiccup turns
-        // into a series of short dropouts. Playback starts right away; after a stall,
-        // handlePlaybackStalled holds it until a real (and growing) cushion is downloaded.
+        // into a series of short dropouts. Playback starts after a short cushion; after a
+        // stall, handlePlaybackStalled holds it until a real (and growing) cushion is downloaded.
         self.player = player
         bufferTrackingWorks = false
         observe(item: item, player: player)
-        player.play()
+        playWhenBuffered(item: item, seconds: Self.startBufferSeconds,
+                         timeout: Self.startBufferTimeout, isRebuffer: false)
         beginPlaybackActivity()
 
         currentChannel = channel
@@ -270,11 +273,12 @@ class AudioPlayer: ObservableObject {
     }
 
     /// Keeps the player paused until `seconds` of audio are buffered, then plays.
-    /// On timeout it plays with what it has, or reconnects if no data arrived at all.
-    private func playWhenBuffered(item: AVPlayerItem, seconds target: Double) {
+    /// On timeout it plays with what it has, or, after a stall with no data at all, reconnects.
+    private func playWhenBuffered(item: AVPlayerItem, seconds target: Double,
+                                  timeout: TimeInterval, isRebuffer: Bool) {
         bufferGateTask?.cancel()
         bufferGateTask = Task { [weak self] in
-            let deadline = Date().addingTimeInterval(Self.bufferWaitTimeout)
+            let deadline = Date().addingTimeInterval(timeout)
             while !Task.isCancelled {
                 guard let self, let player = self.player, player.currentItem === item else { return }
                 let ahead = Self.bufferedAhead(of: item)
@@ -285,7 +289,7 @@ class AudioPlayer: ObservableObject {
                 }
                 if Date() >= deadline {
                     self.bufferGateTask = nil
-                    if ahead < 1 {
+                    if isRebuffer && ahead < 1 {
                         self.handleStreamInterrupted(item: item, reason: "no data after stall")
                     } else {
                         NSLog("DI.FM Player: buffer target not reached (%.1fs of %.0fs), playing anyway", ahead, target)
@@ -307,7 +311,8 @@ class AudioPlayer: ObservableObject {
         let target = min(Double(stallCount) * Self.rebufferStepSeconds, Self.maxRebufferSeconds)
         NSLog("DI.FM Player: playback stalled (#%ld), rebuffering %.0fs", stallCount, target)
         player.pause()
-        playWhenBuffered(item: item, seconds: target)
+        playWhenBuffered(item: item, seconds: target,
+                         timeout: Self.bufferWaitTimeout, isRebuffer: true)
     }
 
     private func beginPlaybackActivity() {
