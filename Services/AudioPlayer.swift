@@ -24,11 +24,20 @@ class AudioPlayer: ObservableObject {
     private var stallTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempts = 0
+    /// Holds playback paused until enough audio is buffered (start and after a stall).
+    private var bufferGateTask: Task<Void, Never>?
+    /// Set once loadedTimeRanges has reported data for this stream, so the rebuffer gate can trust it.
+    private var bufferTrackingWorks = false
+    /// Keeps App Nap and timer coalescing away from the stream while playing (LSUIElement app, no windows).
+    private var playbackActivity: NSObjectProtocol?
     /// Bumped on every user-initiated stop/play so stale async work can detect it was superseded.
     private var generation = 0
 
     private static let stallTimeout: UInt64 = 15 // seconds of buffering before reconnecting
     private static let maxReconnectAttempts = 10 // ~4.5 min of retries with backoff
+    private static let startBufferSeconds = 4.0 // audio buffered before playback starts
+    private static let rebufferSeconds = 8.0 // audio buffered before resuming after a stall
+    private static let bufferWaitTimeout: TimeInterval = 10 // max wait for the buffer target
 
     private init() {
         volume = SettingsManager.shared.volume
@@ -117,6 +126,7 @@ class AudioPlayer: ObservableObject {
         reconnectTask = nil
         reconnectAttempts = 0
         tearDownPlayer()
+        endPlaybackActivity()
         isLoading = false
         isPlaying = false
         errorMessage = nil
@@ -150,16 +160,20 @@ class AudioPlayer: ObservableObject {
             ]
         ])
         let item = AVPlayerItem(asset: asset)
-        // Generous forward buffer: absorbs network jitter and brief main-thread blocks.
+        // Forward buffer cap; the actual cushion is built by playWhenBuffered below.
         item.preferredForwardBufferDuration = 15
         let player = AVPlayer(playerItem: item)
         player.volume = volume
-        // automaticallyWaitsToMinimizeStalling = true (default): AVPlayer keeps a
-        // decoded audio buffer. Brief main-thread stalls (UI interactions, Sparkle)
-        // are absorbed by this buffer instead of causing audible crackling.
+        // automaticallyWaitsToMinimizeStalling = true (default). On its own this is not
+        // enough for a progressive live stream: AVPlayer resumes as soon as it thinks it
+        // can keep up, often with under a second of audio, so one network hiccup turns
+        // into a series of short dropouts. playWhenBuffered holds playback until a real
+        // cushion is downloaded, at start and after every stall.
         self.player = player
+        bufferTrackingWorks = false
         observe(item: item, player: player)
-        player.play()
+        playWhenBuffered(item: item, seconds: Self.startBufferSeconds, isRebuffer: false)
+        beginPlaybackActivity()
 
         currentChannel = channel
         isPlaying = true
@@ -170,6 +184,8 @@ class AudioPlayer: ObservableObject {
     private func tearDownPlayer() {
         stallTask?.cancel()
         stallTask = nil
+        bufferGateTask?.cancel()
+        bufferGateTask = nil
         itemObservers.forEach { NotificationCenter.default.removeObserver($0) }
         itemObservers.removeAll()
         kvoObservers.removeAll()
@@ -188,6 +204,18 @@ class AudioPlayer: ObservableObject {
                 Task { @MainActor in self?.handleStreamInterrupted(item: item, reason: note.name.rawValue) }
             })
         }
+
+        // Buffer ran dry: AVPlayer would resume with a tiny buffer and stutter again.
+        itemObservers.append(center.addObserver(forName: AVPlayerItem.playbackStalledNotification,
+                                                object: item, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.handlePlaybackStalled(item: item) }
+        })
+
+        itemObservers.append(center.addObserver(forName: AVPlayerItem.newErrorLogEntryNotification,
+                                                object: item, queue: .main) { _ in
+            guard let event = item.errorLog()?.events.last else { return }
+            NSLog("DI.FM Player: stream error %ld %@", event.errorStatusCode, event.errorComment ?? "")
+        })
 
         kvoObservers.append(item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
@@ -220,6 +248,76 @@ class AudioPlayer: ObservableObject {
         default:
             break
         }
+    }
+
+    // MARK: - Buffering
+
+    /// Seconds of downloaded audio ahead of the playhead.
+    private static func bufferedAhead(of item: AVPlayerItem) -> Double {
+        let now = item.currentTime()
+        for value in item.loadedTimeRanges {
+            let range = value.timeRangeValue
+            let end = CMTimeRangeGetEnd(range)
+            guard CMTimeCompare(end, now) > 0 else { continue }
+            let from = CMTimeMaximum(range.start, now)
+            return CMTimeGetSeconds(CMTimeSubtract(end, from))
+        }
+        return 0
+    }
+
+    /// Keeps the player paused until `seconds` of audio are buffered, then plays.
+    /// Falls back to playing (or reconnecting, after a stall with no progress) on timeout,
+    /// so a stream that never reports buffer progress can't get stuck here.
+    private func playWhenBuffered(item: AVPlayerItem, seconds target: Double, isRebuffer: Bool) {
+        bufferGateTask?.cancel()
+        bufferGateTask = Task { [weak self] in
+            let deadline = Date().addingTimeInterval(Self.bufferWaitTimeout)
+            while !Task.isCancelled {
+                guard let self, let player = self.player, player.currentItem === item else { return }
+                let ahead = Self.bufferedAhead(of: item)
+                if ahead > 0 { self.bufferTrackingWorks = true }
+                if ahead >= target {
+                    self.bufferGateTask = nil
+                    player.play()
+                    return
+                }
+                if Date() >= deadline {
+                    self.bufferGateTask = nil
+                    if isRebuffer && ahead < 1 {
+                        self.handleStreamInterrupted(item: item, reason: "no data after stall")
+                    } else {
+                        NSLog("DI.FM Player: buffer target not reached (%.1fs of %.0fs), playing anyway", ahead, target)
+                        player.play()
+                    }
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+    }
+
+    private func handlePlaybackStalled(item: AVPlayerItem) {
+        guard isPlaying, let player, player.currentItem === item,
+              bufferGateTask == nil, reconnectTask == nil else { return }
+        // Without trustworthy buffer info, leave recovery to AVPlayer and the stall watchdog.
+        guard bufferTrackingWorks else { return }
+        NSLog("DI.FM Player: playback stalled, rebuffering %.0fs", Self.rebufferSeconds)
+        player.pause()
+        playWhenBuffered(item: item, seconds: Self.rebufferSeconds, isRebuffer: true)
+    }
+
+    private func beginPlaybackActivity() {
+        guard playbackActivity == nil else { return }
+        playbackActivity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "Streaming audio"
+        )
+    }
+
+    private func endPlaybackActivity() {
+        guard let activity = playbackActivity else { return }
+        ProcessInfo.processInfo.endActivity(activity)
+        playbackActivity = nil
     }
 
     private func handleStreamInterrupted(item: AVPlayerItem, reason: String) {
@@ -257,6 +355,7 @@ class AudioPlayer: ObservableObject {
                         self.reconnectTask = nil
                         self.isLoading = false
                         self.isPlaying = false
+                        self.endPlaybackActivity()
                         self.errorMessage = error.localizedDescription
                         self.updateNowPlayingInfo()
                         return
