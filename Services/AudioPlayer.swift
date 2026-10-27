@@ -310,6 +310,9 @@ class AudioPlayer: ObservableObject {
         stallCount += 1
         let target = min(Double(stallCount) * Self.rebufferStepSeconds, Self.maxRebufferSeconds)
         NSLog("DI.FM Player: playback stalled (#%ld), rebuffering %.0fs", stallCount, target)
+        // Fresh watchdog once we resume; an old one would exit on .paused and block new ones.
+        stallTask?.cancel()
+        stallTask = nil
         player.pause()
         playWhenBuffered(item: item, seconds: target,
                          timeout: Self.bufferWaitTimeout, isRebuffer: true)
