@@ -24,8 +24,10 @@ class AudioPlayer: ObservableObject {
     private var stallTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempts = 0
-    /// Holds playback paused until enough audio is buffered (start and after a stall).
+    /// Holds playback paused after a stall until enough audio is buffered again.
     private var bufferGateTask: Task<Void, Never>?
+    /// Stalls since the user pressed play; each one makes the next rebuffer longer.
+    private var stallCount = 0
     /// Set once loadedTimeRanges has reported data for this stream, so the rebuffer gate can trust it.
     private var bufferTrackingWorks = false
     /// Keeps App Nap and timer coalescing away from the stream while playing (LSUIElement app, no windows).
@@ -35,9 +37,9 @@ class AudioPlayer: ObservableObject {
 
     private static let stallTimeout: UInt64 = 15 // seconds of buffering before reconnecting
     private static let maxReconnectAttempts = 10 // ~4.5 min of retries with backoff
-    private static let startBufferSeconds = 4.0 // audio buffered before playback starts
-    private static let rebufferSeconds = 8.0 // audio buffered before resuming after a stall
-    private static let bufferWaitTimeout: TimeInterval = 10 // max wait for the buffer target
+    private static let rebufferStepSeconds = 4.0 // rebuffer target grows 4, 8, 12, … per stall
+    private static let maxRebufferSeconds = 20.0
+    private static let bufferWaitTimeout: TimeInterval = 25 // max wait for the buffer target
 
     private init() {
         volume = SettingsManager.shared.volume
@@ -125,6 +127,7 @@ class AudioPlayer: ObservableObject {
         reconnectTask?.cancel()
         reconnectTask = nil
         reconnectAttempts = 0
+        stallCount = 0
         tearDownPlayer()
         endPlaybackActivity()
         isLoading = false
@@ -160,19 +163,19 @@ class AudioPlayer: ObservableObject {
             ]
         ])
         let item = AVPlayerItem(asset: asset)
-        // Forward buffer cap; the actual cushion is built by playWhenBuffered below.
-        item.preferredForwardBufferDuration = 15
+        // Forward buffer cap; must stay above maxRebufferSeconds.
+        item.preferredForwardBufferDuration = 30
         let player = AVPlayer(playerItem: item)
         player.volume = volume
         // automaticallyWaitsToMinimizeStalling = true (default). On its own this is not
         // enough for a progressive live stream: AVPlayer resumes as soon as it thinks it
         // can keep up, often with under a second of audio, so one network hiccup turns
-        // into a series of short dropouts. playWhenBuffered holds playback until a real
-        // cushion is downloaded, at start and after every stall.
+        // into a series of short dropouts. Playback starts right away; after a stall,
+        // handlePlaybackStalled holds it until a real (and growing) cushion is downloaded.
         self.player = player
         bufferTrackingWorks = false
         observe(item: item, player: player)
-        playWhenBuffered(item: item, seconds: Self.startBufferSeconds, isRebuffer: false)
+        player.play()
         beginPlaybackActivity()
 
         currentChannel = channel
@@ -232,6 +235,7 @@ class AudioPlayer: ObservableObject {
         guard player?.currentItem === item else { return }
         switch status {
         case .playing:
+            if Self.bufferedAhead(of: item) > 0 { bufferTrackingWorks = true }
             stallTask?.cancel()
             stallTask = nil
             reconnectAttempts = 0
@@ -266,16 +270,14 @@ class AudioPlayer: ObservableObject {
     }
 
     /// Keeps the player paused until `seconds` of audio are buffered, then plays.
-    /// Falls back to playing (or reconnecting, after a stall with no progress) on timeout,
-    /// so a stream that never reports buffer progress can't get stuck here.
-    private func playWhenBuffered(item: AVPlayerItem, seconds target: Double, isRebuffer: Bool) {
+    /// On timeout it plays with what it has, or reconnects if no data arrived at all.
+    private func playWhenBuffered(item: AVPlayerItem, seconds target: Double) {
         bufferGateTask?.cancel()
         bufferGateTask = Task { [weak self] in
             let deadline = Date().addingTimeInterval(Self.bufferWaitTimeout)
             while !Task.isCancelled {
                 guard let self, let player = self.player, player.currentItem === item else { return }
                 let ahead = Self.bufferedAhead(of: item)
-                if ahead > 0 { self.bufferTrackingWorks = true }
                 if ahead >= target {
                     self.bufferGateTask = nil
                     player.play()
@@ -283,7 +285,7 @@ class AudioPlayer: ObservableObject {
                 }
                 if Date() >= deadline {
                     self.bufferGateTask = nil
-                    if isRebuffer && ahead < 1 {
+                    if ahead < 1 {
                         self.handleStreamInterrupted(item: item, reason: "no data after stall")
                     } else {
                         NSLog("DI.FM Player: buffer target not reached (%.1fs of %.0fs), playing anyway", ahead, target)
@@ -301,9 +303,11 @@ class AudioPlayer: ObservableObject {
               bufferGateTask == nil, reconnectTask == nil else { return }
         // Without trustworthy buffer info, leave recovery to AVPlayer and the stall watchdog.
         guard bufferTrackingWorks else { return }
-        NSLog("DI.FM Player: playback stalled, rebuffering %.0fs", Self.rebufferSeconds)
+        stallCount += 1
+        let target = min(Double(stallCount) * Self.rebufferStepSeconds, Self.maxRebufferSeconds)
+        NSLog("DI.FM Player: playback stalled (#%ld), rebuffering %.0fs", stallCount, target)
         player.pause()
-        playWhenBuffered(item: item, seconds: Self.rebufferSeconds, isRebuffer: true)
+        playWhenBuffered(item: item, seconds: target)
     }
 
     private func beginPlaybackActivity() {
