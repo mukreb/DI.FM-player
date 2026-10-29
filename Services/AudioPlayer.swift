@@ -181,6 +181,8 @@ class AudioPlayer: ObservableObject {
                          timeout: Self.startBufferTimeout, isRebuffer: false)
         beginPlaybackActivity()
 
+        // Host and path only: the query carries the listen key.
+        NSLog("DI.FM Player: stream started (%@) %@%@", channel.name, url.host ?? "", url.path)
         currentChannel = channel
         isPlaying = true
         SettingsManager.shared.lastChannelID = channel.id
@@ -236,6 +238,7 @@ class AudioPlayer: ObservableObject {
 
     private func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus, item: AVPlayerItem) {
         guard player?.currentItem === item else { return }
+        logStatus(status, item: item)
         switch status {
         case .playing:
             if Self.bufferedAhead(of: item) > 0 { bufferTrackingWorks = true }
@@ -255,6 +258,20 @@ class AudioPlayer: ObservableObject {
         default:
             break
         }
+    }
+
+    /// Every play/wait/pause transition goes to the log, so a dropout AVPlayer handles
+    /// on its own (without a stalled notification) still leaves a trace.
+    private func logStatus(_ status: AVPlayer.TimeControlStatus, item: AVPlayerItem) {
+        let name: String
+        switch status {
+        case .playing: name = "playing"
+        case .paused: name = "paused"
+        case .waitingToPlayAtSpecifiedRate:
+            name = "waiting (\(player?.reasonForWaitingToPlay?.rawValue ?? "unknown"))"
+        @unknown default: name = "unknown"
+        }
+        NSLog("DI.FM Player: status %@, %.1fs buffered", name, Self.bufferedAhead(of: item))
     }
 
     // MARK: - Buffering
@@ -306,7 +323,10 @@ class AudioPlayer: ObservableObject {
         guard isPlaying, let player, player.currentItem === item,
               bufferGateTask == nil, reconnectTask == nil else { return }
         // Without trustworthy buffer info, leave recovery to AVPlayer and the stall watchdog.
-        guard bufferTrackingWorks else { return }
+        guard bufferTrackingWorks else {
+            NSLog("DI.FM Player: playback stalled, no buffer info; leaving recovery to AVPlayer")
+            return
+        }
         stallCount += 1
         let target = min(Double(stallCount) * Self.rebufferStepSeconds, Self.maxRebufferSeconds)
         NSLog("DI.FM Player: playback stalled (#%ld), rebuffering %.0fs", stallCount, target)
