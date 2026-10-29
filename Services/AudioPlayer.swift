@@ -1,7 +1,17 @@
 import AppKit
 import AVFoundation
+import MediaToolbox
 import Foundation
 import MediaPlayer
+
+/// What the menu bar shows while a stream is playing.
+enum StreamHealth {
+    case ok
+    /// Waiting for data: our connection (or DI.FM's server) isn't delivering fast enough.
+    case buffering
+    /// Data arrives and plays, but the audio itself is silent: the problem is at DI.FM's source.
+    case silent
+}
 
 @MainActor
 class AudioPlayer: ObservableObject {
@@ -11,6 +21,7 @@ class AudioPlayer: ObservableObject {
     @Published var isPlaying = false
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published private(set) var streamHealth: StreamHealth = .ok
     @Published var volume: Float = 1.0 {
         didSet { player?.volume = volume }
     }
@@ -32,6 +43,9 @@ class AudioPlayer: ObservableObject {
     private var bufferTrackingWorks = false
     /// Keeps App Nap and timer coalescing away from the stream while playing (LSUIElement app, no windows).
     private var playbackActivity: NSObjectProtocol?
+    /// Measures the decoded audio level, to tell a silent source from a stalled connection.
+    private var levelMeter: AudioLevelMeter?
+    private var healthTask: Task<Void, Never>?
     /// Bumped on every user-initiated stop/play so stale async work can detect it was superseded.
     private var generation = 0
 
@@ -42,6 +56,8 @@ class AudioPlayer: ObservableObject {
     private static let rebufferStepSeconds = 4.0 // rebuffer target grows 4, 8, 12, … per stall
     private static let maxRebufferSeconds = 20.0
     private static let bufferWaitTimeout: TimeInterval = 25 // max wait for the buffer target
+    private static let silenceLevel: Float = 0.001 // peak below -60 dBFS counts as silence
+    private static let silenceDuration: TimeInterval = 2 // silence this long while playing → .silent
 
     private init() {
         volume = SettingsManager.shared.volume
@@ -132,6 +148,7 @@ class AudioPlayer: ObservableObject {
         stallCount = 0
         tearDownPlayer()
         endPlaybackActivity()
+        stopHealthMonitor()
         isLoading = false
         isPlaying = false
         errorMessage = nil
@@ -180,6 +197,8 @@ class AudioPlayer: ObservableObject {
         playWhenBuffered(item: item, seconds: Self.startBufferSeconds,
                          timeout: Self.startBufferTimeout, isRebuffer: false)
         beginPlaybackActivity()
+        attachLevelMeter(to: item, asset: asset)
+        startHealthMonitor()
 
         // Host and path only: the query carries the listen key.
         NSLog("DI.FM Player: stream started (%@) %@%@", channel.name, url.host ?? "", url.path)
@@ -197,6 +216,7 @@ class AudioPlayer: ObservableObject {
         itemObservers.forEach { NotificationCenter.default.removeObserver($0) }
         itemObservers.removeAll()
         kvoObservers.removeAll()
+        levelMeter = nil
         player?.pause()
         player = nil
     }
@@ -338,6 +358,62 @@ class AudioPlayer: ObservableObject {
                          timeout: Self.bufferWaitTimeout, isRebuffer: true)
     }
 
+    // MARK: - Stream health (menu bar indicator)
+
+    /// Taps the decoded audio once the asset's track is known. If the tap can't be set up,
+    /// the meter never reports audio and silence detection simply stays off.
+    private func attachLevelMeter(to item: AVPlayerItem, asset: AVURLAsset) {
+        Task { [weak self] in
+            guard let track = try? await asset.loadTracks(withMediaType: .audio).first,
+                  let self, self.player?.currentItem === item,
+                  let made = AudioLevelMeter.make() else { return }
+            let (meter, tap) = made
+            let params = AVMutableAudioMixInputParameters(track: track)
+            params.audioTapProcessor = tap
+            let mix = AVMutableAudioMix()
+            mix.inputParameters = [params]
+            item.audioMix = mix
+            self.levelMeter = meter
+        }
+    }
+
+    /// Polls twice a second while playing (across reconnects) and publishes streamHealth.
+    private func startHealthMonitor() {
+        guard healthTask == nil else { return }
+        healthTask = Task { [weak self] in
+            var silentSince: Date?
+            while !Task.isCancelled {
+                guard let self, self.isPlaying else { return }
+                let peak = self.levelMeter?.takePeak()
+                let health: StreamHealth
+                if self.reconnectTask != nil || self.bufferGateTask != nil
+                    || self.player?.timeControlStatus != .playing {
+                    health = .buffering
+                    silentSince = nil
+                } else if let peak, peak < Self.silenceLevel {
+                    let since = silentSince ?? Date()
+                    silentSince = since
+                    health = Date().timeIntervalSince(since) >= Self.silenceDuration ? .silent : .ok
+                } else {
+                    // Audio is playing, or the meter isn't (yet) reporting.
+                    health = .ok
+                    silentSince = nil
+                }
+                if health != self.streamHealth {
+                    NSLog("DI.FM Player: health %@", "\(health)")
+                    self.streamHealth = health
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
+    private func stopHealthMonitor() {
+        healthTask?.cancel()
+        healthTask = nil
+        streamHealth = .ok
+    }
+
     private func beginPlaybackActivity() {
         guard playbackActivity == nil else { return }
         playbackActivity = ProcessInfo.processInfo.beginActivity(
@@ -388,6 +464,7 @@ class AudioPlayer: ObservableObject {
                         self.isLoading = false
                         self.isPlaying = false
                         self.endPlaybackActivity()
+                        self.stopHealthMonitor()
                         self.errorMessage = error.localizedDescription
                         self.updateNowPlayingInfo()
                         return
@@ -408,5 +485,76 @@ class AudioPlayer: ObservableObject {
                 self.scheduleReconnect(immediately: true)
             }
         }
+    }
+}
+
+// MARK: - Audio level meter
+
+/// Wraps an MTAudioProcessingTap that records the peak sample level of the decoded audio.
+/// The tap's process callback runs on an AVFoundation audio thread and only writes `peak`;
+/// the main actor reads and resets it. A racy Float read/write is harmless for a meter.
+private final class AudioLevelMeter {
+    fileprivate var peak: Float = 0
+    /// True once the tap has processed audio in a float format we can measure.
+    fileprivate var isMeasuring = false
+    fileprivate var isFloat = false
+
+    private init() {}
+
+    /// The tap holds the meter (released in finalize); the meter does not hold the tap.
+    static func make() -> (AudioLevelMeter, MTAudioProcessingTap)? {
+        let meter = AudioLevelMeter()
+        var callbacks = MTAudioProcessingTapCallbacks(
+            version: kMTAudioProcessingTapCallbacksVersion_0,
+            // The tap keeps the meter alive; finalize releases it.
+            clientInfo: Unmanaged.passRetained(meter).toOpaque(),
+            init: { _, clientInfo, tapStorageOut in
+                tapStorageOut.pointee = clientInfo
+            },
+            finalize: { tap in
+                Unmanaged<AudioLevelMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
+            },
+            prepare: { tap, _, format in
+                let meter = Unmanaged<AudioLevelMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap))
+                    .takeUnretainedValue()
+                let asbd = format.pointee
+                meter.isFloat = asbd.mFormatID == kAudioFormatLinearPCM
+                    && asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0
+                    && asbd.mBitsPerChannel == 32
+            },
+            unprepare: nil,
+            process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
+                guard MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut,
+                                                         flagsOut, nil, numberFramesOut) == noErr else { return }
+                let meter = Unmanaged<AudioLevelMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap))
+                    .takeUnretainedValue()
+                guard meter.isFloat else { return }
+                var peak: Float = 0
+                for buffer in UnsafeMutableAudioBufferListPointer(bufferListInOut) {
+                    guard let data = buffer.mData else { continue }
+                    let samples = data.assumingMemoryBound(to: Float.self)
+                    let count = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size
+                    for i in 0..<count { peak = max(peak, abs(samples[i])) }
+                }
+                meter.peak = max(meter.peak, peak)
+                meter.isMeasuring = true
+            }
+        )
+        var tap: MTAudioProcessingTap?
+        let status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks,
+                                                kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
+        guard status == noErr, let tap else {
+            Unmanaged.passUnretained(meter).release() // balance passRetained: finalize won't run
+            return nil
+        }
+        return (meter, tap)
+    }
+
+    /// Peak level since the last call, or nil while the tap hasn't measured any audio.
+    func takePeak() -> Float? {
+        guard isMeasuring else { return nil }
+        let value = peak
+        peak = 0
+        return value
     }
 }
