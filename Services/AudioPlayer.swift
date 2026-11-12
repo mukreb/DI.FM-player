@@ -3,6 +3,15 @@ import AVFoundation
 import MediaToolbox
 import Foundation
 import MediaPlayer
+import os
+
+/// NSLog arguments are redacted as <private> in the unified log, so stall messages were
+/// invisible to `log show`. Log through os.Logger with the text marked public instead.
+private let audioLog = Logger(subsystem: "nl.mvberkum.difm-player", category: "audio")
+
+private func logEvent(_ message: String) {
+    audioLog.notice("DI.FM Player: \(message, privacy: .public)")
+}
 
 /// What the menu bar shows while a stream is playing.
 enum StreamHealth {
@@ -201,7 +210,7 @@ class AudioPlayer: ObservableObject {
         startHealthMonitor()
 
         // Host and path only: the query carries the listen key.
-        NSLog("DI.FM Player: stream started (%@) %@%@", channel.name, url.host ?? "", url.path)
+        logEvent(String(format: "stream started (%@) %@%@", channel.name, url.host ?? "", url.path))
         currentChannel = channel
         isPlaying = true
         SettingsManager.shared.lastChannelID = channel.id
@@ -242,7 +251,7 @@ class AudioPlayer: ObservableObject {
         itemObservers.append(center.addObserver(forName: AVPlayerItem.newErrorLogEntryNotification,
                                                 object: item, queue: .main) { _ in
             guard let event = item.errorLog()?.events.last else { return }
-            NSLog("DI.FM Player: stream error %ld %@", event.errorStatusCode, event.errorComment ?? "")
+            logEvent(String(format: "stream error %ld %@", event.errorStatusCode, event.errorComment ?? ""))
         })
 
         kvoObservers.append(item.observe(\.status) { [weak self] item, _ in
@@ -291,7 +300,7 @@ class AudioPlayer: ObservableObject {
             name = "waiting (\(player?.reasonForWaitingToPlay?.rawValue ?? "unknown"))"
         @unknown default: name = "unknown"
         }
-        NSLog("DI.FM Player: status %@, %.1fs buffered", name, Self.bufferedAhead(of: item))
+        logEvent(String(format: "status %@, %.1fs buffered", name, Self.bufferedAhead(of: item)))
     }
 
     // MARK: - Buffering
@@ -329,7 +338,7 @@ class AudioPlayer: ObservableObject {
                     if isRebuffer && ahead < 1 {
                         self.handleStreamInterrupted(item: item, reason: "no data after stall")
                     } else {
-                        NSLog("DI.FM Player: buffer target not reached (%.1fs of %.0fs), playing anyway", ahead, target)
+                        logEvent(String(format: "buffer target not reached (%.1fs of %.0fs), playing anyway", ahead, target))
                         player.play()
                     }
                     return
@@ -344,12 +353,12 @@ class AudioPlayer: ObservableObject {
               bufferGateTask == nil, reconnectTask == nil else { return }
         // Without trustworthy buffer info, leave recovery to AVPlayer and the stall watchdog.
         guard bufferTrackingWorks else {
-            NSLog("DI.FM Player: playback stalled, no buffer info; leaving recovery to AVPlayer")
+            logEvent("playback stalled, no buffer info; leaving recovery to AVPlayer")
             return
         }
         stallCount += 1
         let target = min(Double(stallCount) * Self.rebufferStepSeconds, Self.maxRebufferSeconds)
-        NSLog("DI.FM Player: playback stalled (#%ld), rebuffering %.0fs", stallCount, target)
+        logEvent(String(format: "playback stalled (#%ld), rebuffering %.0fs", stallCount, target))
         // Fresh watchdog once we resume; an old one would exit on .paused and block new ones.
         stallTask?.cancel()
         stallTask = nil
@@ -400,7 +409,7 @@ class AudioPlayer: ObservableObject {
                     silentSince = nil
                 }
                 if health != self.streamHealth {
-                    NSLog("DI.FM Player: health %@", "\(health)")
+                    logEvent("health \(health)")
                     self.streamHealth = health
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -430,7 +439,7 @@ class AudioPlayer: ObservableObject {
 
     private func handleStreamInterrupted(item: AVPlayerItem, reason: String) {
         guard isPlaying, player?.currentItem === item else { return }
-        NSLog("DI.FM Player: stream interrupted (\(reason)), reconnecting")
+        logEvent("stream interrupted (\(reason)), reconnecting")
         scheduleReconnect()
     }
 
