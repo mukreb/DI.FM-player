@@ -9,6 +9,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private var cancellables = Set<AnyCancellable>()
     private var settingsWindow: NSWindow?
+    /// Blinks the icon while the stream is buffering.
+    private var blinkTimer: Timer?
+    private var blinkOn = false
 
     private override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -29,11 +32,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // Trigger early initialization of ChannelStore
         _ = ChannelStore.shared
 
-        // Update icon when playback state changes
+        // Update icon when playback state or stream health changes
         AudioPlayer.shared.$isPlaying
+            .combineLatest(AudioPlayer.shared.$streamHealth)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] playing in
-                self?.updateIcon(playing: playing)
+            .sink { [weak self] playing, health in
+                self?.updateIcon(playing: playing, health: health)
             }
             .store(in: &cancellables)
 
@@ -43,11 +47,40 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         prewarmSymbolsAndViews()
     }
 
-    private func updateIcon(playing: Bool) {
-        statusItem.button?.image = NSImage(
-            systemSymbolName: playing ? "waveform.circle.fill" : "waveform",
-            accessibilityDescription: "DI.FM Player"
-        )
+    private func updateIcon(playing: Bool, health: StreamHealth) {
+        let blinking = playing && health == .buffering
+        if blinking, blinkTimer == nil {
+            blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.blinkOn.toggle()
+                    self.setIcon(self.blinkOn ? "waveform.circle" : "waveform.circle.fill")
+                }
+            }
+        } else if !blinking {
+            blinkTimer?.invalidate()
+            blinkTimer = nil
+        }
+
+        let button = statusItem.button
+        switch (playing, health) {
+        case (false, _):
+            setIcon("waveform")
+            button?.toolTip = "DI.FM Player"
+        case (true, .ok):
+            setIcon("waveform.circle.fill")
+            button?.toolTip = "DI.FM Player"
+        case (true, .buffering):
+            // Icon is driven by blinkTimer.
+            button?.toolTip = "Buffering: waiting for data from the connection"
+        case (true, .silent):
+            setIcon("speaker.slash.circle.fill")
+            button?.toolTip = "Stream is playing, but DI.FM is sending silence"
+        }
+    }
+
+    private func setIcon(_ symbol: String) {
+        statusItem.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "DI.FM Player")
     }
 
     @objc private func handleClick(_ sender: NSStatusBarButton) {
@@ -111,6 +144,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             nextItem.target = self
             nextItem.image = NSImage(systemSymbolName: "forward.fill", accessibilityDescription: nil)
             menu.addItem(nextItem)
+        }
+
+        if player.isPlaying && player.streamHealth != .ok {
+            let title = player.streamHealth == .silent
+                ? "Silence from DI.FM (stream is connected)"
+                : "Buffering: waiting for data…"
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
         }
 
         if let error = player.errorMessage {
@@ -254,7 +296,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let symbols = [
             "stop.circle.fill", "backward.fill", "forward.fill",
             "music.note", "speaker.wave.2.fill", "speaker.wave.2",
-            "waveform", "waveform.circle.fill"
+            "waveform", "waveform.circle.fill", "waveform.circle", "speaker.slash.circle.fill"
         ]
         for name in symbols {
             _ = NSImage(systemSymbolName: name, accessibilityDescription: nil)
